@@ -2,20 +2,63 @@ package mapreduce
 
 import (
 	"hash/fnv"
+	"io/ioutil"
+	"fmt"
+	bytes2 "bytes"
+	"strconv"
 )
 
 // doMap manages one map task: it reads one of the input files
 // (inFile), calls the user-defined map function (mapF) for that file's
 // contents, and partitions the output into nReduce intermediate files.
 func doMap(
-	jobName string, // the name of the MapReduce job
+	jobName string,    // the name of the MapReduce job
 	mapTaskNumber int, // which map task this is
 	inFile string,
 	nReduce int, // the number of reduce task that will be run ("R" in the paper)
 	mapF func(file string, contents string) []KeyValue,
 ) {
-	//reduceName := reduceName(jobName, mapTaskNumber, nReduce)
-	//
+
+	bytes, e := ioutil.ReadFile("/home/akt/go/src/main/mr-challenge.txt")
+	if e != nil {
+		fmt.Print(e.Error())
+		return
+	}
+
+	keyValueArr := mapF(inFile, string(bytes))
+	rKeyValueMap := make(map[int][]KeyValue)
+	for _, keyValue := range keyValueArr {
+		key := keyValue.Key
+		r := ihash(key) % nReduce
+
+		values := rKeyValueMap[r]
+		if values != nil {
+			values = append(values, keyValue)
+		} else {
+			values = make([]KeyValue, 1)
+			values[0] = keyValue
+		}
+		rKeyValueMap[r] = values
+	}
+
+	for r, values := range rKeyValueMap {
+		fileName := reduceName(jobName, mapTaskNumber, r)
+
+		var stringBuilder bytes2.Buffer
+
+		for _, value := range values {
+			n, _ := stringBuilder.WriteString(value.Key + ":" + value.Value + "\n")
+			fmt.Println("writed bytes=" + strconv.Itoa(n))
+		}
+
+		writeFileError := ioutil.WriteFile(fileName, stringBuilder.Bytes(), 0644)
+		if writeFileError == nil {
+			fmt.Print("fileName=" + fileName + " was writed")
+		} else {
+			fmt.Print("error in writing file. Error=" + writeFileError.Error())
+		}
+	}
+
 	// You will need to write this function.
 	//
 	// The intermediate output of a map task is stored as multiple
@@ -30,7 +73,7 @@ func doMap(
 	// typically ignores it. The second argument should be the entire
 	// input file contents. mapF() returns a slice containing the
 	// key/value pairs for reduce; see common.go for the definition of
-	// KeyValue.
+	// keyValue.
 	//
 	// Look at Go's ioutil and os packages for functions to read
 	// and write files.

@@ -5,6 +5,7 @@ import (
 	"mapreduce"
 	"os"
 	"strings"
+	"strconv"
 )
 
 //
@@ -16,9 +17,8 @@ import (
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
 	split := strings.Split(contents, " ")
-	var result []mapreduce.KeyValue
+	result := make([]mapreduce.KeyValue, len(split))
 	for index, token := range split {
-
 		result[index] = mapreduce.KeyValue{Key: token, Value: "1"}
 	}
 	return result
@@ -33,6 +33,16 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
 //
 func reduceF(key string, values []string) string {
 	// TODO: you also have to write this function
+	counter := 0
+	for _, token := range values {
+		value, e := strconv.Atoi(token)
+		if e != nil {
+			fmt.Println("error in converting token to intereger")
+			break
+		}
+		counter += value
+	}
+	return strconv.Itoa(counter)
 }
 
 // Can be run in 3 ways:

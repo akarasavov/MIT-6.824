@@ -1,13 +1,33 @@
 package main
 
 import (
-	"fmt"
 	"mapreduce"
+	"bytes"
+	"strconv"
+	"io/ioutil"
+	"fmt"
 )
 
 func main() {
-	hi := hi("test")
-	fmt.Print(hi[0])
+
+	mapInts := make(map[string][]int)
+	ints := mapInts["a"]
+	ints = append(ints, 1)
+	ints = append(ints, 2)
+	mapInts["a"] = ints
+
+	var buffer bytes.Buffer
+
+	for key, values := range mapInts {
+		for _, value := range values {
+			n, err := buffer.WriteString(key + ":" + strconv.Itoa(value) + "\n")
+			fmt.Print(n)
+			fmt.Print(err)
+		}
+	}
+	fmt.Print(len(buffer.Bytes()))
+	file := ioutil.WriteFile("/home/akt/go/src/main/lext.txt", buffer.Bytes(), 0644)
+	fmt.Print(file)
 }
 
 type KeyValue struct {
