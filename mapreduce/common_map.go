@@ -4,8 +4,8 @@ import (
 	"hash/fnv"
 	"io/ioutil"
 	"fmt"
-	bytes2 "bytes"
-	"strconv"
+	"encoding/json"
+	"os"
 )
 
 // doMap manages one map task: it reads one of the input files
@@ -18,8 +18,8 @@ func doMap(
 	nReduce int, // the number of reduce task that will be run ("R" in the paper)
 	mapF func(file string, contents string) []KeyValue,
 ) {
-
-	bytes, e := ioutil.ReadFile("/home/akt/go/src/main/mr-challenge.txt")
+ 
+	bytes, e := ioutil.ReadFile(inFile)
 	if e != nil {
 		fmt.Print(e.Error())
 		return
@@ -41,22 +41,23 @@ func doMap(
 		rKeyValueMap[r] = values
 	}
 
+
 	for r, values := range rKeyValueMap {
 		fileName := reduceName(jobName, mapTaskNumber, r)
 
-		var stringBuilder bytes2.Buffer
+		file, creatingError := os.Create(fileName)
+		if creatingError != nil {
+			fmt.Println("can't create file=" + fileName)
+		}
+		enc := json.NewEncoder(file)
 
 		for _, value := range values {
-			n, _ := stringBuilder.WriteString(value.Key + ":" + value.Value + "\n")
-			fmt.Println("writed bytes=" + strconv.Itoa(n))
+			encodeError := enc.Encode(value)
+			if encodeError != nil {
+				fmt.Println("Can't encode this object")
+			}
 		}
-
-		writeFileError := ioutil.WriteFile(fileName, stringBuilder.Bytes(), 0644)
-		if writeFileError == nil {
-			fmt.Print("fileName=" + fileName + " was writed")
-		} else {
-			fmt.Print("error in writing file. Error=" + writeFileError.Error())
-		}
+		file.Close()
 	}
 
 	// You will need to write this function.
