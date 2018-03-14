@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"encoding/json"
+	"sort"
 )
 
 // doReduce manages one reduce task: it reads the intermediate
@@ -18,46 +19,45 @@ func doReduce(
 	reduceF func(key string, values []string) string,
 ) {
 
+	keyValues := make(map[string][]string)
 	for i := 0; i < nMap; i++ {
-		fileName := reduceName(jobName, i, reduceTaskNumber)
-
-		file, openFileError := os.Open(fileName)
-		if openFileError != nil {
-			fmt.Println("error in opening file=" + fileName)
-			return
-		}
-		decoder := json.NewDecoder(file)
-		kv := KeyValue{}
-		decodeError := decoder.Decode(&kv)
-		keyValueMap := make(map[string][]string)
-		for decodeError == nil {
-			values := keyValueMap[kv.Key]
-			value := kv.Value
-			if values != nil {
-				values = append(values, value)
-			} else {
-				values = make([]string, 1)
-				values[0] = value
+		file, err := os.Open(reduceName(jobName, i, reduceTaskNumber))
+		if err != nil {
+			fmt.Printf("reduce file:%s can't open\n", reduceName(jobName, i, reduceTaskNumber))
+		} else {
+			enc := json.NewDecoder(file)
+			for {
+				var kv KeyValue
+				err := enc.Decode(&kv)
+				if err != nil {
+					break
+				}
+				_, ok := keyValues[kv.Key]
+				if !ok {
+					keyValues[kv.Key] = make([]string, 0)
+				}
+				keyValues[kv.Key] = append(keyValues[kv.Key], kv.Value)
 			}
-			keyValueMap[kv.Key] = values
-
-			decodeError = decoder.Decode(&kv)
+			file.Close()
 		}
-		file.Close()
-
-		reduceFile, reduceFileCreateError := os.Create(outFile)
-		if reduceFileCreateError != nil {
-			fmt.Println("error in creating reduce file" + outFile)
-		}
-
-		encoder := json.NewEncoder(reduceFile)
-
-		for key, values := range keyValueMap {
-			encoder.Encode(KeyValue{key, reduceF(key, values)})
-		}
-		reduceFile.Close()
 	}
+	var keys []string
+	for k, _ := range keyValues {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys) // 递增排序
 
+	file, err := os.Create(mergeName(jobName, reduceTaskNumber))
+	if err != nil {
+		fmt.Printf("reduce merge file:%s can't open\n", mergeName(jobName, reduceTaskNumber))
+		return
+	}
+	enc := json.NewEncoder(file)
+
+	for _, k := range keys {
+		enc.Encode(KeyValue{k, reduceF(k, keyValues[k])})
+	}
+	file.Close()
 
 	//
 	// You will need to write this function.

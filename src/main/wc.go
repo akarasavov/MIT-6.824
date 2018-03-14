@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"strconv"
+	"unicode"
 )
 
 //
@@ -16,7 +17,9 @@ import (
 // of key/value pairs.
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
-	split := strings.Split(contents, " ")
+	split := strings.FieldsFunc(contents, func(c rune) bool {
+		return !unicode.IsLetter(c)
+	})
 	result := make([]mapreduce.KeyValue, len(split))
 	for index, token := range split {
 		result[index] = mapreduce.KeyValue{Key: token, Value: "1"}
