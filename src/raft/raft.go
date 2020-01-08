@@ -155,32 +155,33 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
-	fmt.Printf("server %v receive RequestVoteArgs term=%v candidateId=%v \n", rf.me, args.Term, args.CandidateId)
+	candidate := args.CandidateId
+	fmt.Printf("server{%v} receive RequestVoteArgs term{%v} candidateId{%v} \n", rf.me, args.Term, candidate)
 
 	reply.VoteGranted = false
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
-		fmt.Printf("RequestVoteReply term=%v voteGranted=%v \n", reply.Term, reply.VoteGranted)
+		fmt.Printf("server{%v} RequestVoteReply term{%v} voteGranted{%v} for candidate{%v} \n", rf.me, reply.Term, reply.VoteGranted, candidate)
 		return
 	}
-	becomeFolower := false
+	becomeFollower := false
 	if args.Term > rf.currentTerm {
 		rf.currentTerm = args.Term
 		rf.voteFor = -1
-		becomeFolower = true
+		becomeFollower = true
 		reply.Term = rf.currentTerm
 	}
 
-	canVoteForCandidate := rf.voteFor == -1 || rf.voteFor == args.CandidateId
+	canVoteForCandidate := rf.voteFor == -1 || rf.voteFor == candidate
 	if canVoteForCandidate {
 		reply.VoteGranted = true
-		rf.voteFor = args.CandidateId
-		becomeFolower = true
+		rf.voteFor = candidate
+		becomeFollower = true
 	}
-	if becomeFolower {
+	if becomeFollower {
 		go rf.becomeFollower()
 	}
-	fmt.Printf("RequestVoteReply term=%v voteGranted=%v \n", reply.Term, reply.VoteGranted)
+	fmt.Printf("server{%v} RequestVoteReply term{%v} voteGranted{%v} for candidate{%v} \n", rf.me, reply.Term, reply.VoteGranted, candidate)
 
 }
 
@@ -201,8 +202,6 @@ func (rf *Raft) broadcastRequestVote() {
 					go rf.becomeLeader()
 				}
 				count++
-			} else {
-				panic("Receive invalid state exception")
 			}
 		}
 	}
@@ -225,12 +224,12 @@ func (rf *Raft) AppendEntities(args *AppendEntitiesArgs, reply *AppendEntitiesRe
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
-	fmt.Printf("server %v receive AppendEntities term=%v LeaderId=%v \n", rf.me, args.Term, args.LeaderId)
+	fmt.Printf("server{%v} receive AppendEntities term{%v} LeaderId{%v} \n", rf.me, args.Term, args.LeaderId)
 
 	if rf.currentTerm > args.Term {
 		reply.Success = false
 		reply.Term = rf.currentTerm
-		fmt.Printf("AppendEntitiesReply term=%v sucess=%v \n", reply.Term, reply.Success)
+		fmt.Printf("AppendEntitiesReply term{%v} sucess{%v} \n", reply.Term, reply.Success)
 		return
 	}
 
@@ -241,7 +240,7 @@ func (rf *Raft) AppendEntities(args *AppendEntitiesArgs, reply *AppendEntitiesRe
 
 		go rf.becomeFollower()
 
-		fmt.Printf("AppendEntitiesReply term=%v sucess=%v \n", reply.Term, reply.Success)
+		fmt.Printf("AppendEntitiesReply term{%v} sucess={%v} \n", reply.Term, reply.Success)
 	}
 
 }

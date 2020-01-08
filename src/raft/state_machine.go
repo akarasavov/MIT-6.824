@@ -27,7 +27,7 @@ func (rf *Raft) createStateHandler() func() {
 
 func (rf *Raft) createFollowerHandler() func() {
 	return func() {
-		fmt.Printf("Follower iter serverId %v \n", rf.me)
+		fmt.Printf("Initialize follower{%v} \n", rf.me)
 		rf.resetTimer(electionTime())
 		select {
 		case <-rf.becomeFlw:
@@ -44,15 +44,11 @@ func (rf *Raft) createFollowerHandler() func() {
 func (rf *Raft) createCandidateHandler() func() {
 	return func() {
 		rf.resetTimer(electionTime())
-		closeChan := func() {
-			close(rf.canBeALeader)
-		}
 		select {
 		case <-rf.becomeFlw:
-			rf.changeState(FOLLOWER, closeChan)
+			rf.changeState(FOLLOWER, func() {})
 		case <-rf.canBeALeader:
 			rf.changeState(LEADER, func() {
-				closeChan()
 				rf.broadcastAppendEntities()
 			})
 		case <-rf.timer.C:
@@ -100,30 +96,27 @@ func (rf *Raft) changeState(state int, f func()) {
 func printServerState(state int, rf *Raft) {
 	switch state {
 	case FOLLOWER:
-		fmt.Printf("server=%v change state to Follow \n", rf.me)
+		fmt.Printf("server{%v} state is follower \n", rf.me)
 	case CANDIDATE:
-		fmt.Printf("server=%v change state to Candidate \n", rf.me)
+		fmt.Printf("server{%v} state is candidate \n", rf.me)
 	case LEADER:
-		fmt.Printf("server=%v change state to Leader \n", rf.me)
+		fmt.Printf("server{%v} state is leader \n", rf.me)
 	}
 }
 
 func (rf *Raft) resetTimer(duration time.Duration) {
 	rf.stopTimer()
-	//fmt.Printf("Lock serverId=%v \n", rf.me)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	//defer fmt.Printf("Unlock serverId=%v \n", rf.me)
+
 	if rf.timer.Reset(duration) {
 		panic("timer is running or not stop")
 	}
 }
 
 func (rf *Raft) stopTimer() {
-	//fmt.Printf("Lock serverId=%v \n", rf.me)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	//defer fmt.Printf("Unlock serverId=%v \n", rf.me)
 
 	if !rf.timer.Stop() {
 		select {
